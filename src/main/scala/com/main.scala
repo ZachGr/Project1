@@ -51,6 +51,11 @@ object main {
     spark.sql("create table IF NOT EXISTS damages (Rank INT, Name STRING, Location String, Year Int, Category INT, Damages INT) row format delimited fields terminated by ','")
     spark.sql("LOAD DATA LOCAL INPATH 'C:/Users/zmgre/Desktop/project0all/storm_damge.csv' INTO TABLE damages")
 
+    spark.sql("DROP table IF EXISTS chance")
+    //spark.sql("CREATE TABLE test2 (id INT, name STRING, age INT) STORED AS ORC;");
+    spark.sql("create table IF NOT EXISTS chance (Rank INT, State STRING, Category1 int, Category2 Int, Category3 INT, Category4 INT, Category5 INT, All INT, Major Int, percentOfAll String, percentOfMajor String, AB String, Location String) row format delimited fields terminated by ','")
+    spark.sql("LOAD DATA LOCAL INPATH 'C:/Users/zmgre/Desktop/project0all/storm_chance.csv' INTO TABLE chance")
+
       //spark.sql("SELECT damages.Damages, deaths.Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name ORDER BY Damages DESC").show()
       //spark.sql("SELECT * FROM deaths WHERE _c5 != 'null'").show()
     //val catTest = 1
@@ -86,8 +91,38 @@ object main {
 /************************************************USES HIVE***************************************************************/
     def deathVsDamages(): Unit ={
       spark.sql("SELECT damages.Damages, deaths.Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name ORDER BY Damages DESC").show()
+      spark.sql("SELECT COUNT(Damages) AS damagesAbove9000, ROUND(AVG(Deaths),2) as AVGDeaths FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) WHERE Damages > 9250").show()
+      spark.sql("SELECT COUNT(Damages) AS damagesBelow9000, ROUND(AVG(Deaths),2) as AVGDeaths FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) WHERE Damages < 9250").show()
+
+      spark.sql("SELECT damages.Damages, deaths.Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name ORDER BY Deaths DESC").show()
+      spark.sql("SELECT COUNT(Deaths) AS deathsAbove75, ROUND(AVG(Damages),2) as AVGDamage FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) WHERE Deaths > 74").show()
+      spark.sql("SELECT COUNT(Deaths) AS deathsBelow75, ROUND(AVG(Damages),2) as AVGDamage FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) WHERE Deaths < 74").show()
+    }
+    def chance(): Unit ={
+      //spark.sql("SELECT * FROM chance").show()
+      var state = ""
+      do {
+        spark.sql("SELECT AB, State FROM chance").show()
+        println("Type the state abbreviation you would like to look at\nType quit to Exit: ")
+        state = scala.io.StdIn.readLine()
+        if (state != "quit") {
+          //spark.sql("SELECT SUM(Deaths) AS totalDeaths FROM deaths GROUP BY Location LIKE '%" + state + "%'").show()
+          spark.sql("SELECT SUM(totalDEATHS) FROM (SELECT Deaths AS totalDeaths FROM deaths WHERE Location LIKE '%" + state + "%')").show()
+          spark.sql("SELECT SUM(totalDamages) FROM (SELECT Damages AS totalDamages FROM damages WHERE Location LIKE '%" + state + "%')").show()
+          spark.sql("SELECT * FROM chance WHERE AB LIKE '%"+state+"%'").show()
+          //spark.sql("SELECT totalDeaths, chance.ALL FROM(SELECT SUM(Deaths) AS totalDeaths FROM deaths GROUP BY Location LIKE '%" + state + "%')").show()
+        }
+      }while(state != "quit")
+
+    }
+    def locVsCat(){
+      spark.sql("SELECT COUNT(Location), Location, SUM(All) FROM chance GROUP BY Location").show()
+      spark.sql("SELECT COUNT(Location), Location, SUM(Category3+Category4+Category5) AS CAT3AndUp FROM chance GROUP BY Location").show()
+      spark.sql("SELECT COUNT(Location), Location, SUM(Category4+Category5) AS CAT4AndUp FROM chance GROUP BY Location").show()
     }
 
+
+    /*******************************************************************************************************/
     choice()
     def choice() {
         println("Press 1 to create an account\nPress 2 to sign in ")
@@ -104,7 +139,7 @@ object main {
       val url = "jdbc:mysql://localhost:3306/users"
       val driver = "com.mysql.jdbc.Driver"
       val username = "root"
-      val password = "ADDPSW"
+      val password = "INPUTPSW"
       var connection:Connection = null
       try {
         Class.forName(driver)
@@ -141,7 +176,7 @@ object main {
       val url = "jdbc:mysql://localhost:3306/users"
       val driver = "com.mysql.jdbc.Driver"
       val username = "root"
-      val password = "ADDPSW"
+      val password = "INPUTPSW"
       var connection:Connection = null
       try {
         Class.forName(driver)
@@ -228,7 +263,8 @@ object main {
     }
     def dataSelect(): Unit ={
       println("Press 1 to see the relationship between the Category and the amount of deaths\nPress 2 to see the relationship between Category and Cost of damages: ")
-      println("Press 3 to see the relationship between the cost of Damages and the amount of deaths")
+      println("Press 3 to see the relationship between the cost of Damages and the amount of deaths\nPress 4 to see the Damages and Deaths compared to State")
+      println("Press 5 to see the relationship between the Location and Category\nPress 6 to see the Damages and Deaths compared to State")
       val dataChoice = scala.io.StdIn.readInt()
       if(dataChoice == 1){
         catVsDeath()
@@ -236,6 +272,10 @@ object main {
         catVsDamages()
       }else if(dataChoice == 3) {
         deathVsDamages()
+      }else if(dataChoice == 4) {
+        chance()
+      }else if(dataChoice == 5) {
+        locVsCat()
       }
     }
 
