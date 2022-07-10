@@ -25,6 +25,7 @@ object main {
     dfdamages.createOrReplaceTempView("hdfsdamage")
 
 
+
     spark.sql("DROP table IF EXISTS deaths")
     //spark.sql("CREATE TABLE test2 (id INT, name STRING, age INT) STORED AS ORC;");
     spark.sql("create table IF NOT EXISTS deaths (Rank INT, Location STRING, Year INT, Category INT, Deaths INT, Name String) row format delimited fields terminated by ','")
@@ -42,19 +43,22 @@ object main {
 
     /************************************USING HADOOP*******************************/
     def catVsDeath(): Unit ={
+      println("How Category Affects Deaths")
         spark.sql("SELECT _c3 AS Category, SUM(_c4) AS Total_Deaths, COUNT(_c3) AS Amount_Of_Storms, ROUND(AVG(_c4),1) as Avg_Deaths FROM hdfsdeath GROUP BY _c3 ORDER BY _c3 ASC LIMIT 5").show()
 
       }
 
     def catVsDamages() {
-      spark.sql("SELECT _c4 AS Category, SUM(_c5) AS Total_Damages, COUNT(_c4) AS Amount_Of_Storms, ROUND(AVG(_c5),1) as Avg_Damages FROM hdfsdamage GROUP BY _c4 ORDER BY _c4 ASC LIMIT 5").show()
+      println("How Category Affects Damages")
+      spark.sql("SELECT _c4 AS Category, SUM(_c5) AS Total_Damages_In_Millions, COUNT(_c4) AS Amount_Of_Storms, ROUND(AVG(_c5),1) as Avg_Damages FROM hdfsdamage GROUP BY _c4 ORDER BY _c4 ASC LIMIT 5").show()
 
     }
 /************************************************USES HIVE***************************************************************/
     def deathVsDamages(): Unit ={
-       spark.sql("SELECT ROUND(AVG(Damages),0) AS AVG_Damages, COUNT(Damages) AS Amount_Of_Storms, ROUND(AVG(Deaths),0) as AVGDeaths FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) GROUP BY Damages > 9250 HAVING Amount_Of_Storms > 0").show()
-
-      spark.sql("SELECT ROUND(AVG(Deaths),0) AS AVG_Deaths, COUNT(Deaths) AS Amount_Of_Storms, ROUND(AVG(Damages),0) as AVGDamage FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) GROUP BY Deaths > 74 HAVING Amount_Of_Storms > 0").show()
+      println("The 1st line represents Storms that had Damages costing over $9,250 and the 2nd line is under $9,250")
+       spark.sql("SELECT ROUND(AVG(Damages),0) AS AVG_Damages_In_Millions, COUNT(Damages) AS Amount_Of_Storms, ROUND(AVG(Deaths),0) as AVGDeaths FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) GROUP BY Damages > 9250 HAVING Amount_Of_Storms > 0").show()
+      println("The 1st represents storms that had over 74 deaths and the 2nd line represents under 74")
+      spark.sql("SELECT ROUND(AVG(Deaths),0) AS AVG_Deaths, COUNT(Deaths) AS Amount_Of_Storms, ROUND(AVG(Damages),0) as AVGDamage_In_Millions FROM (SELECT damages.Damages AS Damages, deaths.Deaths AS Deaths, damages.Name, damages.Rank AS damageRank, deaths.Rank As deathRank FROM damages INNER JOIN deaths ON damages.Name = deaths.Name) GROUP BY Deaths > 74 HAVING Amount_Of_Storms > 0").show()
 
     }
     def chance(): Unit ={
@@ -66,8 +70,8 @@ object main {
         state = scala.io.StdIn.readLine()
         if (state != "quit") {
 
-          spark.sql("SELECT SUM(totalDEATHS) FROM (SELECT Deaths AS totalDeaths FROM deaths WHERE Location LIKE '%" + state + "%')").show()
-          spark.sql("SELECT SUM(totalDamages) FROM (SELECT Damages AS totalDamages FROM damages WHERE Location LIKE '%" + state + "%')").show()
+          spark.sql("SELECT SUM(totalDEATHS) AS All_Deaths FROM (SELECT Deaths AS totalDeaths FROM deaths WHERE Location LIKE '%" + state + "%')").show()
+          spark.sql("SELECT SUM(totalDamages) AS Cost_Of_All_Damages_In_Millions FROM (SELECT Damages AS totalDamages FROM damages WHERE Location LIKE '%" + state + "%')").show()
           spark.sql("SELECT * FROM chance WHERE AB LIKE '%"+state+"%'").show()
 
         }
@@ -76,24 +80,15 @@ object main {
     }
 
     def locVsCat(){
-      spark.sql("SELECT COUNT(Location), Location, SUM(All) FROM chance GROUP BY Location").show()
-      spark.sql("SELECT COUNT(Location), Location, SUM(Category3+Category4+Category5) AS CAT3AndUp FROM chance GROUP BY Location").show()
-      spark.sql("SELECT COUNT(Location), Location, SUM(Category4+Category5) AS CAT4AndUp FROM chance GROUP BY Location").show()
+      spark.sql("SELECT COUNT(Location) AS Total_States, Location, SUM(All) AS Hurricanes_That_hit FROM chance GROUP BY Location").show()
+      spark.sql("SELECT COUNT(Location) AS Total_States, Location, SUM(Category3+Category4+Category5) AS CAT3_And_Up FROM chance GROUP BY Location").show()
+      spark.sql("SELECT COUNT(Location) AS Total_States, Location, SUM(Category4+Category5) AS CAT4AndUp FROM chance GROUP BY Location").show()
     }
 
     def catVsTime(): Unit ={
-      spark.sql("SELECT COUNT(_c3) AS amountStorms, SUM(_c4) AS DeathsPost1925, ROUND(AVG(_c3),1) AS after1925 FROM hdfsdeath WHERE _c2 >= 1925").show()
-      spark.sql("SELECT COUNT(_c3) AS amountStorms, SUM(_c4) AS DeathsPre1925, ROUND(AVG(_c3),1) AS before1925 FROM hdfsdeath WHERE _c2 < 1925").show()
+      spark.sql("SELECT COUNT(_c3) AS amount_Of_Storms, SUM(_c4) AS Deaths_Post_1925, ROUND(AVG(_c3),1) AS AVG_Cat_after_1925 FROM hdfsdeath WHERE _c2 >= 1925").show()
+      spark.sql("SELECT COUNT(_c3) AS amount_Of_Storms, SUM(_c4) AS Deaths_Pre_1925, ROUND(AVG(_c3),1) AS Avg_Cat_before_1925 FROM hdfsdeath WHERE _c2 < 1925").show()
 
-      /*var yearPick = ""
-      do {
-        println("Pick a year to divide the database: \nType quit to Exit:  ")
-        yearPick = scala.io.StdIn.readLine()
-        if(yearPick != "quit") {
-          spark.sql("SELECT COUNT(_c3) AS amountStorms, SUM(_c4) AS DeathsPost1925, ROUND(AVG(_c3),1) AS after1925 FROM hdfsdeath WHERE _c2 >= '" + yearPick + "'").show()
-          spark.sql("SELECT COUNT(_c3) AS amountStorms, SUM(_c4) AS DeathsPre1925, ROUND(AVG(_c3),1) AS before1925 FROM hdfsdeath WHERE _c2 < '" + yearPick + "'").show()
-        }
-      }while(yearPick != "quit")*/
     }
 
 
@@ -114,7 +109,7 @@ def choice() {
     val url = "jdbc:mysql://localhost:3306/users"
     val driver = "com.mysql.jdbc.Driver"
     val username = "root"
-    val password = "INSERTPSW"
+    val password = "InsertPSW"
     var connection:Connection = null
     try {
       Class.forName(driver)
@@ -125,6 +120,7 @@ def choice() {
       println("Create a password: ")
       val p = scala.io.StdIn.readLine()
       statement.executeUpdate("INSERT INTO stormaccount (username, psw) VALUE ('"+u+"','"+p+"')")
+      choice()
       //val rs = statement.executeQuery("SELECT * FROM stormaccount")
       /*while (rs.next) {
         val id = rs.getString("id")
@@ -142,7 +138,7 @@ def choice() {
   val url = "jdbc:mysql://localhost:3306/users"
   val driver = "com.mysql.jdbc.Driver"
   val username = "root"
-  val password = "INSERTPSW"
+  val password = "InsertPSW"
   var connection:Connection = null
   try {
     Class.forName(driver)
@@ -159,7 +155,7 @@ def choice() {
     while(continue == 1) {
       val account = statement.executeQuery("SELECT * FROM stormaccount WHERE username = '"+u+"' AND psw = '"+p+"'")
       if (account.next != false) {
-        val id = account.getString("id")
+        var id = account.getString("id")
         //println(id)
         if (id == "1") {
           println("Press 1 to delete an account\nPress 2 to sign out: ")
@@ -182,6 +178,7 @@ def choice() {
             }
             statement.executeUpdate("Delete FROM stormaccount WHERE id = '" + del + "'")
           }else if(userpick == 2){
+            id = " "
             choice()
           }
         } else {
